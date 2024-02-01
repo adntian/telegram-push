@@ -7,7 +7,7 @@ function isNumeric(value: string) {
 }
 
 export async function push(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    if (request.method !== "GET") {
+    if (request.method !== "GET" && request.method !== "POST") {
         return new Response("method not allowed", { status: 405 });
     }
 
@@ -15,13 +15,23 @@ export async function push(request: Request, env: Env, ctx: ExecutionContext): P
         return new Response("not installed", { status: 400 });
     }
 
+		let params = new URL(request.url).searchParams;
+		let fullkey, msg;
+		if (request.method === "POST") {
+			params = await request.json();
+			// @ts-ignore
+			fullkey = params.key;
+			// @ts-ignore
+			msg = params.msg;
+		} else {
+			fullkey = params.get("key");
+			msg = params.get("msg");
+		}
     // validate key
-    const params = new URL(request.url).searchParams;
-    if (params.get("msg") === null || params.get("msg") === "") {
+    if (msg === null || msg === "") {
         return new Response("empty message", { status: 400 });
     }
 
-    const fullkey = params.get("key");
     if (fullkey === null || fullkey === "") {
         return new Response("unauthorized: empty key", { status: 401 });
     }
@@ -44,7 +54,7 @@ export async function push(request: Request, env: Env, ctx: ExecutionContext): P
     }
 
     // send message
-    await snedMessage(await env.db.get("TG_KEY") || "", chatid, params.get("msg") || "");
+    await snedMessage(await env.db.get("TG_KEY") || "", chatid, msg || "");
 
     return new Response("ok");
 }
